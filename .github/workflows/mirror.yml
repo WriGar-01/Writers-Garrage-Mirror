@@ -1,0 +1,38 @@
+name: Mirror writersgarage.net
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: '0 2 * * 1-5'   # Weekdays 02:00 UTC (optional)
+
+permissions:
+  contents: write
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare output folder
+        run: |
+          rm -rf public
+          mkdir -p public
+
+      - name: Download static copy with wget
+        run: |
+          cd public
+          wget --mirror --convert-links --adjust-extension --page-requisites --no-parent \
+               --user-agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36" \
+               https://writersgarage.net/
+          # Move nested domain folder up one level (wget nests by hostname)
+          shopt -s dotglob
+          mv writersgarage.net/* .
+          rmdir writersgarage.net
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff-index --quiet HEAD || git commit -m "Update static mirror"
+          git push
